@@ -1,0 +1,14 @@
+-- Run this after creating the first owner account and replace business_id below.
+-- Insert base products
+-- INSERT INTO product (business_id, name, category)
+-- VALUES
+-- ('<business_uuid>', 'Urea', 'Nitrogen'),
+-- ('<business_uuid>', 'DAP', 'Phosphate'),
+-- ('<business_uuid>', 'NPK 19:19:19', 'NPK');
+--
+-- Then insert variants for those products (use the product ids above)
+-- INSERT INTO product_variant (product_id, business_id, sku, unit_type, unit_size, cost_price, sale_price, stock_qty, reorder_level, is_active)
+-- VALUES
+-- ('<product_uuid_1>', '<business_uuid>', 'UREA-50KG', 'kg', 50, 220, 290, 120, 40, true),
+-- ('<product_uuid_2>', '<business_uuid>', 'DAP-50KG', 'kg', 50, 1000, 1350, 80, 35, true),
+-- ('<product_uuid_3>', '<business_uuid>', 'NPK-191919-50KG', 'kg', 50, 1200, 1450, 35, 20, true);
