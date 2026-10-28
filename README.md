@@ -1,35 +1,57 @@
-# STF_POS_SYSTEM
-POS application
+# STF POS System
 
-## Deployment (Railway + Render)
+Point-of-sale product for Soman Tech Foundry — **Next.js modular monolith**.
 
-### Backend on Railway
-1. Create a Railway service from the `Backend` folder.
-2. Railway will use `Backend/railway.json` automatically.
-3. Set environment variables (use `Backend/.env.example` as template):
-   - `NODE_ENV=production`
-   - `PORT=5000` (Railway may override port automatically)
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `JWT_EXPIRES_IN=8h`
-   - `CORS_ORIGIN=https://<your-render-domain>`
-   - `FRONTEND_BASE_URL=https://<your-render-domain>`
-   - `BACKEND_PUBLIC_URL=https://<your-railway-domain>`
-   - `ADMIN_EMAIL=somandeepak14@gmail.com`
-   - SMTP + approval email variables if using signup approval mail flow.
-4. Deploy and verify: `https://<your-railway-domain>/health`
+## Stack (STF standard)
 
-### Frontend on Render
-1. Create a Static Site on Render from this repo using `render.yaml` at root.
-2. Render uses:
-   - `rootDir: Frontend`
-   - `buildCommand: npm install && npm run build`
-   - `publish directory: dist`
-   - SPA rewrite configured in `render.yaml`.
-3. Set environment variable:
-   - `VITE_API_BASE_URL=https://<your-railway-domain>/api`
-4. Redeploy frontend.
+| Layer | Choice |
+|-------|--------|
+| App | Next.js 16 App Router + React 19 + TypeScript |
+| UI | Tailwind (responsive web + mobile layouts) |
+| Database | **PostgreSQL on Neon** |
+| ORM / connector | **Prisma** |
+| API | Next.js `/api` route handlers |
+| Auth | JWT in httpOnly cookie + Bearer support |
+| Deploy | One Vercel project |
 
-### Important
-- After frontend domain is ready, update backend `CORS_ORIGIN` with the exact Render URL.
-- If you use a custom domain, add that domain to `CORS_ORIGIN` too (comma-separated list supported).
+Legacy Vite + Express code lives under `_legacy/` (not used at runtime).
+
+## Quick local start (Neon)
+
+Full guide: **[docs/LOCAL_NEON_SETUP.md](docs/LOCAL_NEON_SETUP.md)**
+
+```powershell
+cd E:\Work\Projects\STF\STF_POS_SYSTEM
+copy .env.example .env.local
+# Paste Neon DATABASE_URL (pooled) + DIRECT_URL (direct) into .env.local
+
+npm install
+npx prisma generate
+npx prisma migrate deploy
+npm run db:seed
+npm run dev
+```
+
+Open http://localhost:3002 — login with seeded admin (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`).
+
+| Port | App |
+|------|-----|
+| 3000 | STF-WEBSITE |
+| 3001 | STF-AI-AGENT-SERVICES |
+| 3002 | **STF POS (this app)** |
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Dev server on 3002 |
+| `npm run build` / `start` | Production |
+| `npx prisma migrate deploy` | Apply migrations to Neon |
+| `npm run db:seed` | Print templates + admin user |
+| `npm run db:studio` | Browse Neon data |
+
+## Architecture
+
+```
+Browser → Next.js (pages + /api) → Prisma Client → Neon Postgres
+```

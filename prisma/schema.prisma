@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model AppUser {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId        String   @default(dbgenerated("gen_random_uuid()")) @map("business_id") @db.Uuid
+  businessName      String   @map("business_name") @db.VarChar(120)
+  businessProfileId String   @default("fertilizer") @map("business_profile_id") @db.VarChar(40)
+  fullName          String   @map("full_name") @db.VarChar(120)
+  email             String   @unique @db.VarChar(120)
+  passwordHash      String   @map("password_hash")
+  role              String   @default("owner") @db.VarChar(30)
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([businessId], map: "idx_app_user_business_id")
+  @@map("app_user")
+}
+
+model SignupRequest {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessName      String    @map("business_name") @db.VarChar(120)
+  businessProfileId String    @default("fertilizer") @map("business_profile_id") @db.VarChar(40)
+  fullName          String    @map("full_name") @db.VarChar(120)
+  email             String    @unique @db.VarChar(120)
+  passwordHash      String    @map("password_hash")
+  approvalToken     String    @unique @map("approval_token")
+  status            String    @default("pending") @db.VarChar(20)
+  requestedAt       DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  approvedAt        DateTime? @map("approved_at") @db.Timestamptz(6)
+  approvedByEmail   String?   @map("approved_by_email") @db.VarChar(120)
+
+  @@index([status], map: "idx_signup_status")
+  @@map("signup_request")
+}
+
+model PrintTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateKey String   @unique @map("template_key") @db.VarChar(60)
+  name        String   @db.VarChar(120)
+  description String   @default("") @db.VarChar(240)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  settings BusinessSetting[]
+
+  @@map("print_template")
+}
+
+model BusinessSetting {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId       String   @unique @map("business_id") @db.Uuid
+  printTemplateKey String   @default("classic_invoice") @map("print_template_key") @db.VarChar(60)
+  billProfile      Json     @default("{}") @map("bill_profile")
+  billProfileI18n  Json     @default("{}") @map("bill_profile_i18n")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  printTemplate PrintTemplate @relation(fields: [printTemplateKey], references: [templateKey], onUpdate: Cascade)
+
+  @@map("business_setting")
+}
+
+model Product {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  name       String   @db.VarChar(150)
+  category   String   @db.VarChar(80)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  variants ProductVariant[]
+  saleItems SaleItem[]
+  purchaseItems PurchaseOrderItem[]
+
+  @@index([businessId], map: "idx_product_business")
+  @@map("product")
+}
+
+model ProductVariant {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
+  businessId   String   @map("business_id") @db.Uuid
+  sku          String   @db.VarChar(60)
+  unitType     String   @default("pcs") @map("unit_type") @db.VarChar(12)
+  unitSize     Decimal  @default(1) @map("unit_size") @db.Decimal(12, 2)
+  costPrice    Decimal  @default(0) @map("cost_price") @db.Decimal(12, 2)
+  salePrice    Decimal  @map("sale_price") @db.Decimal(12, 2)
+  stockQty     Int      @default(0) @map("stock_qty")
+  reorderLevel Int      @default(0) @map("reorder_level")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stocks  InventoryStock[]
+  saleItems SaleItem[]
+  purchaseItems PurchaseOrderItem[]
+
+  @@unique([businessId, sku])
+  @@index([productId], map: "idx_variant_product_id")
+  @@index([businessId], map: "idx_variant_business")
+  @@map("product_variant")
+}
+
+model InventoryLocation {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  code       String   @db.VarChar(40)
+  name       String   @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  stocks InventoryStock[]
+
+  @@unique([businessId, code])
+  @@index([businessId], map: "idx_inventory_location_business")
+  @@map("inventory_location")
+}
+
+model InventoryStock {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  variantId  String   @map("variant_id") @db.Uuid
+  locationId String   @map("location_id") @db.Uuid
+  qty        Int      @default(0)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  variant  ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  location InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, locationId])
+  @@index([variantId], map: "idx_inventory_stock_variant")
+  @@index([locationId], map: "idx_inventory_stock_location")
+  @@map("inventory_stock")
+}
+
+model Customer {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  name       String   @db.VarChar(120)
+  address    String   @default("") @db.VarChar(200)
+  mobile     String   @default("") @db.VarChar(20)
+  email      String   @default("") @db.VarChar(120)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sales Sale[]
+
+  @@index([businessId], map: "idx_customer_business")
+  @@map("customer")
+}
+
+model Sale {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId         String   @map("business_id") @db.Uuid
+  billNo             BigInt   @default(autoincrement()) @map("bill_no")
+  orderType          String   @default("retail") @map("order_type") @db.VarChar(20)
+  customerId         String?  @map("customer_id") @db.Uuid
+  paymentMode        String   @map("payment_mode") @db.VarChar(20)
+  grossTotal         Decimal  @map("gross_total") @db.Decimal(12, 2)
+  discount           Decimal  @default(0) @db.Decimal(12, 2)
+  netTotal           Decimal  @map("net_total") @db.Decimal(12, 2)
+  notes              String   @default("")
+  wholesaleTinNo     String   @default("") @map("wholesale_tin_no") @db.VarChar(120)
+  wholesaleFlPlSlNo  String   @default("") @map("wholesale_fl_pl_sl_no") @db.VarChar(120)
+  sourceLocationCode String   @default("main_store") @map("source_location_code") @db.VarChar(40)
+  createdBy          String   @map("created_by") @db.VarChar(120)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  customer Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items    SaleItem[]
+
+  @@unique([businessId, billNo])
+  @@index([businessId, createdAt], map: "idx_sale_business_date")
+  @@index([customerId], map: "idx_sale_customer_id")
+  @@map("sale")
+}
+
+model SaleItem {
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  saleId             String  @map("sale_id") @db.Uuid
+  productId          String  @map("product_id") @db.Uuid
+  productVariantId   String  @map("product_variant_id") @db.Uuid
+  qty                Int
+  sellingPrice       Decimal @map("selling_price") @db.Decimal(12, 2)
+  sellingPriceTotal  Decimal @map("selling_price_total") @db.Decimal(12, 2)
+  costPrice          Decimal @default(0) @map("cost_price") @db.Decimal(12, 2)
+  costPriceTotal     Decimal @default(0) @map("cost_price_total") @db.Decimal(12, 2)
+
+  sale    Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+  variant ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@index([saleId], map: "idx_sale_item_sale_id")
+  @@index([productVariantId], map: "idx_sale_item_variant_id")
+  @@map("sale_item")
+}
+
+model PurchaseOrder {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId          String   @map("business_id") @db.Uuid
+  purchaseNo          BigInt   @default(autoincrement()) @map("purchase_no")
+  supplierName        String   @default("") @map("supplier_name") @db.VarChar(120)
+  paymentMode         String   @map("payment_mode") @db.VarChar(20)
+  grossTotal          Decimal  @map("gross_total") @db.Decimal(12, 2)
+  discount            Decimal  @default(0) @db.Decimal(12, 2)
+  netTotal            Decimal  @map("net_total") @db.Decimal(12, 2)
+  notes               String   @default("")
+  receiveLocationCode String   @default("godown") @map("receive_location_code") @db.VarChar(40)
+  createdBy           String   @map("created_by") @db.VarChar(120)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  items PurchaseOrderItem[]
+
+  @@unique([businessId, purchaseNo])
+  @@index([businessId, createdAt], map: "idx_purchase_order_business_date")
+  @@map("purchase_order")
+}
+
+model PurchaseOrderItem {
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseOrderId  String  @map("purchase_order_id") @db.Uuid
+  productId        String  @map("product_id") @db.Uuid
+  productVariantId String  @map("product_variant_id") @db.Uuid
+  qty              Int
+  costPrice        Decimal @default(0) @map("cost_price") @db.Decimal(12, 2)
+  costPriceTotal   Decimal @default(0) @map("cost_price_total") @db.Decimal(12, 2)
+
+  purchaseOrder PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product        @relation(fields: [productId], references: [id])
+  variant       ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@index([purchaseOrderId], map: "idx_purchase_order_item_order_id")
+  @@map("purchase_order_item")
+}
+
+model EntityTranslation {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(40)
+  entityId   String   @map("entity_id") @db.Uuid
+  fieldName  String   @map("field_name") @db.VarChar(40)
+  locale     String   @db.VarChar(20)
+  value      String   @default("")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([businessId, entityType, entityId, fieldName, locale])
+  @@index([businessId, entityType, locale], map: "idx_entity_translation_lookup")
+  @@index([entityType, entityId, fieldName], map: "idx_entity_translation_entity")
+  @@map("entity_translation")
+}
